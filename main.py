@@ -4,15 +4,24 @@ import pyttsx3
 import wave
 import threading
 import queue
+import time
+
+def estimate_time(text_length,speech_rate=150):
+    words_per_minute=speech_rate/60
+    estimated_minutes=(len(text_length)/words_per_minute)+0.5
+    return round(estimated_minutes, 2)
 
 def extraction(filepath,lowest,highest,task_queue):
+    start_time=time.time()
+    total=''
     with pdfplumber.open(filepath) as pdf:
-        total=''
         for page_num in range(lowest,highest+1):
             page = pdf.pages[page_num - 1]
             text = page.extract_text()
             total+=text
-    task_queue.put(total)
+    elapsed_time=time.time()-start_time
+    estimated_minutes=estimate_time(total)
+    task_queue.put((total,elapsed_time,estimated_minutes))
 
 def  vakta(text,output_filename):
     engine=pyttsx3.init()
@@ -20,7 +29,7 @@ def  vakta(text,output_filename):
     engine.setProperty('voice',voices[0].id)
     rate=engine.getProperty('rate')
     engine.setProperty('rate',150)
-    engine.save_to_file(text,output_filename+'.wav')
+    engine.save_to_file(text,output_filename+'.mp3')
     engine.runAndWait()
 
 def converter(book_entry,start_entry,end_entry,audio_entry,status_label,task_queue):
@@ -32,37 +41,28 @@ def converter(book_entry,start_entry,end_entry,audio_entry,status_label,task_que
         if lowest>highest:
             raise ValueError("Start Page must be less than End Page")
         
+        audio_path = audio_entry
+        extraction_thread=threading.Thread(target=extraction,args=(book_path,lowest,highest,task_queue))
+        extraction_thread.start()
+        
+        extracted_text,extraction_time,estimated_minutes=task_queue.get()
+        
+        vakta_thread=threading.Thread(target=vakta, args=(None,audio_path))
+        # extraction_thread.join()
+        vakta_thread.start()
+        vakta_thread.join()
+        
+        total_time=extraction_time
+        estimated_minutes_str = f"{estimated_minutes:.2f}"
+        total_time_str = f"{total_time:.2f}"
+        label_text=f"Conversion Successful!(Estimated time:{estimated_minutes_str} minutes, Total Time: {total_time_str}seconds)"
+        status_label.config(text=label_text ,fg='green',pady=5)
+    
     except ValueError as e:
         status_label.config(text=f"Error: {str(e)}", fg="red")
         
     except Exception as e:
         status_label.config(text="Error: Page numbers must be integers", fg="red")
-        
-    audio_path = audio_entry
-    extraction_thread=threading.Thread(target=extraction,args=(book_path,lowest,highest,task_queue))
-    extraction_thread.start()
-    
-    vakta_thread=threading.Thread(target=vakta, args=(None,audio_path))
-    extraction_thread.join()
-    extracted_text=task_queue.get()
-    
-    vakta_thread=threading.Thread(target=vakta, args=(extracted_text,audio_path))
-    vakta_thread.start()
-    vakta_thread.join()
-    status_label.config(text='Conversion Successful!' ,fg='green',pady=5)
-    # try:
-    #     book_text=extraction(book_path, lowest, highest)
-    #     vakta(book_text,audio_path)
-    #     status_label.config(text="Conversion successful!", fg="green")
-        
-    # except FileNotFoundError:
-    #     status_label.config(text=f"Error: File not found - {book_path}", fg="red")
-        
-    # except pdfplumber.PDFSyntaxError:
-    #     status_label.config(text=f"Error: Invalid PDF format - {book_path}", fg="red")
-        
-    # except Exception as e:
-    #     status_label.config(text=f"Error: {str(e)}", fg="red")
         
 def gui():
     root=tk.Tk()
