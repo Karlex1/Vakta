@@ -1,7 +1,6 @@
 import pdfplumber
 import tkinter as tk
 import pyttsx3
-import wave
 import threading
 import queue
 import time
@@ -14,26 +13,30 @@ def estimate_time(text_length,speech_rate=150):
 def extraction(filepath,lowest,highest,task_queue):
     start_time=time.time()
     total=''
+    
     with pdfplumber.open(filepath) as pdf:
         for page_num in range(lowest,highest+1):
             page = pdf.pages[page_num - 1]
             text = page.extract_text()
             total+=text
-    elapsed_time=time.time()-start_time
-    estimated_minutes=estimate_time(total)
-    task_queue.put((total,elapsed_time,estimated_minutes))
+    task_queue.put((total,time.time()-start_time))
 
-def  vakta(text,output_filename):
+def  vakta(text,output_filename,status_label):
     engine=pyttsx3.init()
     voices=engine.getProperty('voices')
     engine.setProperty('voice',voices[0].id)
-    rate=engine.getProperty('rate')
     engine.setProperty('rate',150)
+    def finished_call(status):
+        if status:
+            estimated_minutes=estimate_time(text)
+            estimated_minutes_str=f"{estimated_minutes: .2f}"
+            status_label.config(text=f"Conversion Successful (Estimated Time : {estimated_minutes_str} minutes)",fg='green',pady=5)
     engine.save_to_file(text,output_filename+'.mp3')
     engine.runAndWait()
+    engine.stop()
+    finished_call(True)
 
-def converter(book_entry,start_entry,end_entry,audio_entry,status_label,task_queue):
-    book_path=book_entry
+def converter(book_path,start_entry,end_entry,audio_path,status_label,task_queue):
     try:
         lowest=int(start_entry)
         highest=int(end_entry)
@@ -41,22 +44,14 @@ def converter(book_entry,start_entry,end_entry,audio_entry,status_label,task_que
         if lowest>highest:
             raise ValueError("Start Page must be less than End Page")
         
-        audio_path = audio_entry
         extraction_thread=threading.Thread(target=extraction,args=(book_path,lowest,highest,task_queue))
         extraction_thread.start()
+        extraction_thread.join()
         
-        extracted_text,extraction_time,estimated_minutes=task_queue.get()
+        extracted_text,_=task_queue.get()
         
-        vakta_thread=threading.Thread(target=vakta, args=(None,audio_path))
-        # extraction_thread.join()
+        vakta_thread=threading.Thread(target=vakta, args=(extracted_text,audio_path,status_label))
         vakta_thread.start()
-        vakta_thread.join()
-        
-        total_time=extraction_time
-        estimated_minutes_str = f"{estimated_minutes:.2f}"
-        total_time_str = f"{total_time:.2f}"
-        label_text=f"Conversion Successful!(Estimated time:{estimated_minutes_str} minutes, Total Time: {total_time_str}seconds)"
-        status_label.config(text=label_text ,fg='green',pady=5)
     
     except ValueError as e:
         status_label.config(text=f"Error: {str(e)}", fg="red")
@@ -67,36 +62,30 @@ def converter(book_entry,start_entry,end_entry,audio_entry,status_label,task_que
 def gui():
     root=tk.Tk()
     root.title("Vakta")
-    book_label = tk.Label(root, text="Book Path:")
-    book_label.pack()
-    
+    tk.Label(root, text="Book Path:").pack()
     book_entry= tk.Entry(root, width=50)
     book_entry.pack()
     
-    start_label = tk.Label(root, text="Start Page:")
-    start_label.pack()
-    
+    tk.Label(root, text="Start Page:").pack()
     start_entry = tk.Entry(root, width=10)
     start_entry.pack()
     
-    end_label = tk.Label(root, text="End Page:")
-    end_label.pack()
-    
+    tk.Label(root, text="End Page:").pack()
     end_entry = tk.Entry(root, width=10)
     end_entry.pack()
     
-    audio_label=tk.Label(root,text="Audio File Name:")
-    audio_label.pack()
-    
+    tk.Label(root,text="Audio File Name:").pack()
     audio_entry=tk.Entry(root,width=50)
     audio_entry.pack()
+    
+    status_label = tk.Label(root, text="")
+    status_label.pack()
     
     task_queue=queue.Queue()
     
     convert_button=tk.Button(root,text="Create AudioBook",command=lambda: converter(book_entry.get(),start_entry.get(),end_entry.get(),audio_entry.get(),status_label,task_queue))
     convert_button.pack()
-    status_label = tk.Label(root, text="")
-    status_label.pack()
+    
     root.mainloop()
     
 gui()
