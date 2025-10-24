@@ -1,6 +1,6 @@
 # 🎧 Vakta 2.0 — Text to Audio Converter
 
-### 🪄 Overview  
+### Overview  
 **Vakta 2.0** is a lightweight and powerful **Text-to-Audio Converter** built with Python.  
 It can take any **PDF, image, or text file** and turn it into an **audio file** — so you can listen to books, notes, or documents hands-free.  
 
@@ -9,6 +9,7 @@ The app features a clean graphical interface, automatic text extraction (even fr
 ---
 
 ### ✨ What’s New in Version 2.0
+- Resolving the problem for scanned books pdf by using OCR.
 - 🧠 **OCR Support:** Reads text from scanned PDFs and images using `keras_ocr`  
 - 🎨 **Modern GUI:** Built with `tkinter` in a dark theme  
 - ⚡ **Threaded Processing:** Uses Python’s `threading` and `queue` to keep the GUI responsive while converting files  
@@ -56,11 +57,11 @@ threading.Thread(
 ).start()
 ```
 
-The **`Queue`** object (`task_queue`) is used to safely send live status updates back to the main thread, which then updates the GUI labels using:
+The **`Queue`** object (`task_queue`) is used to safely send status updates back to the main thread, which then updates the GUI labels using:
 ```python
 root.after(200, poll_queue)
 ```
-This pattern keeps everything smooth and crash-free.
+This pattern keeps GUI feel active like every thing is happening at frontend.
 
 ---
 
@@ -81,8 +82,8 @@ Your audio (`.mp3`) file will be saved in the same folder.
 ---
 
 ### 🖼️ Example Interface
-*(Replace with your screenshot)*  
-![Vakta GUI Screenshot](Screenshot65.png)
+<img width="907" height="643" alt="Screenshot (167)" src="https://github.com/user-attachments/assets/6816ac36-5eb4-42fb-bf5f-4048fd5dac2a" />
+
 
 ---
 
